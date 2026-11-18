@@ -727,3 +727,68 @@ Debug (Adminer, owner only):
 SELECT phone,dir,body,created_at FROM wa_log ORDER BY id DESC LIMIT 20;
 SELECT objection_id,delivery,last_error,meta_id FROM wa_decisions ORDER BY updated_at DESC LIMIT 20;
 ```
+
+
+---
+
+# 📞 CALL module + 🚨 EMERGENCY/STOCK (Phase A)
+
+Home पर **Call** tile अब पूरा Call module है और **11वाँ लाल tile "Emergency"** जुड़ा है.
+App सिर्फ़ frontend + Postgres है. असली calls **Dograh** में और automation **n8n** में चलती है; app सिर्फ़ result store/show करती है.
+n8n जुड़ा न हो तो **MOCK mode** — हर screen नकली पर realistic नतीजे से चलती है, असली call/WhatsApp कुछ नहीं जाता.
+
+## क्या कहाँ रहता है (कुछ दोबारा copy नहीं)
+| चीज़ | जगह |
+|---|---|
+| Orders (Call / WhatsApp / manual) | `sg_ord_<DD-MM-YYYY>` — Call के order में `source:'call'`, `call_id` |
+| Rates | `sg_rates` (Set Rate) — rate सिर्फ़ यहीं से, AI कभी कम नहीं करता |
+| "Rate kam karo" | मौजूदा `sg_wa_obj` (Home → WhatsApp → Objection), `source:'call'` — दूसरा approval UI नहीं |
+| Customer numbers | `sgc_contacts` + Save पर `sg_mobiles` भी update (Tally/WhatsApp bot चलते रहें) |
+| Calls, callbacks, pending orders, wheat offers | `sgc_*` tables |
+| Stock ledger, limits, alerts | `sgs_*` tables (`UNIQUE(source,ref)` → दोबारा गिनती नहीं) |
+
+## 🔐 Environment variables (Cloudflare Pages → Settings → Variables and Secrets)
+| Variable | काम |
+|---|---|
+| `DATABASE_URL` | पहले से (वही Postgres) |
+| `CALL_ADMIN_TOKEN` | `/api/call` और `/api/stock` का Bearer key. App में पहली बार पूछेगा, device पर याद रहेगा (cloud sync में नहीं जाता) |
+| `N8N_BASE_URL` | जैसे `https://n8n.satyamgold.com` |
+| `N8N_SECRET` | App → n8n में header `X-SG-Secret`; n8n → app (`/api/call-hook`) पर यही verify होता है |
+
+`N8N_BASE_URL` / `N8N_SECRET` खाली = **MOCK**. Dograh / Meta / n8n की कोई key frontend या repo में नहीं.
+Owner के 2 numbers code में नहीं — **Call → Settings** में भरें.
+
+## 🗄️ Adminer में `call-schema.sql` कैसे चलाएँ
+1. Adminer → DB `postgres`, Schema `public` → **SQL command**.
+2. `call-schema.sql` का पूरा text paste → **Execute**. दोबारा चलाना सुरक्षित (कोई DROP/DELETE नहीं).
+3. यह सिर्फ़ `sgc_*` / `sgs_*` tables + functions बनाती है. Dograh (`campaigns`, `workflow_runs`, `queued_runs`, `telephony_*`…) और `coll_*` को नहीं छूती.
+4. जाँच: `SELECT sgc_dashboard();` और `SELECT sgs_summary();`
+
+n8n के Postgres node से सीधे चलने वाले functions:
+`sgc_get_customer_by_number(phone)` · `sgc_get_rates(ckey, area)` · `sgc_order_upsert(json)` · `sgc_call_completed(json)` · `sgc_rate_request_create(json)` · `sgc_callback_create(json)` · `sgc_wheat_offer_create(json)` · `sgs_summary()` · `sgs_event(json)`
+
+## 🔌 n8n / Dograh connect checklist
+1. [ ] Cloudflare में `CALL_ADMIN_TOKEN`, `N8N_BASE_URL`, `N8N_SECRET` डालें → **Redeploy**.
+2. [ ] Adminer में `call-schema.sql` चलाएँ.
+3. [ ] n8n → **Import** `n8n-call.json` (inactive आता है).
+4. [ ] n8n Credentials: Header Auth **SG Secret (X-SG-Secret)** (Name `X-SG-Secret`, Value = `N8N_SECRET`) और **Dograh API key**.
+5. [ ] Workflow में भरें: `Config` nodes का `APP_URL`, Dograh trigger URL, Dograh recording URL (Dograh docs से — endpoints अंदाज़े से नहीं भरे).
+6. [ ] Dograh में Hindi voice agent बनाएँ (prompt: `DOGRAH-SETUP.md`), end-of-call webhook = `https://n8n.satyamgold.com/webhook/sg-dograh-done` (header `X-SG-Secret`).
+7. [ ] Workflow **Publish**.
+8. [ ] App → Call → Settings → **🔌 n8n Test** (LIVE दिखे).
+9. [ ] किसी एक customer पर **📞 Call** → Dashboard/History में नतीजा, Recording, Summary देखें.
+
+## Phase A में क्या है
+- **Dashboard**: आज की calls (total/answered/not picked/orders/rate only/callbacks), bora (calls से), cost, Pause, लाल **STOP ALL CALLS**, pending-approval बड़े orders.
+- **Customers** (tally-style table): Name, Call No., WhatsApp No., Area, Last Order (Order Book vs Atta Receipt, जो बाद का), Last Call, Today Status, [Call] [History] [WhatsApp]; filters; multi-select "Call selected". Customer list = Tally debtors + creditors + Order Book + `sg_wa_cust` + manual (de-duplicated).
+- **Customer Detail**: दोनों numbers + "same" tick, Tally due, Call history, Recording player (server-proxy, raw URL कभी नहीं), AI summary, Transcript, Orders + **Order badlo** (मौजूदा Order Book edit), Rate requests.
+- **Callbacks** list, **Settings** (Owner 1/2, समय window, daily call/cost limit, retry, "ordered" window, बड़ा-order threshold, recording announcement, n8n Test, Audit log).
+- **Safety (code में)**: dial से ठीक पहले "आज order आया?" दोबारा check; समय window / रविवार; Do-Not-Call / Wrong number; daily call + cost limit; Stop All; बड़ा order → **Pending Approval**; AI का rate ignore (rate Set Rate से); Wheat offer कभी final purchase नहीं; audit log (settings, limits, stock, kill switch, approvals).
+- **Emergency**: stock bars (हरा/पीला/लाल), आज IN/OUT, Limits (Warning/Emergency/Critical, कम या ज़्यादा होने पर), Alert history + Acknowledge, Test Alert. (Stock Add / Chakki / Count / auto IN-OUT — Phase C.)
+
+## n8n ↔ app contract
+**App → n8n** `POST {N8N_BASE_URL}/webhook/sg-<event>` (header `X-SG-Secret`): `call_customer`, `start_area_campaign`, `start_wheat_procurement`, `stop_all_calls`, `stock_check`, `test_alert`, `ack_alert`, `ping`.
+**n8n → app** `POST /api/call-hook` (header `X-SG-Secret`, body `{action, ...}`): `call_completed`, `order_upsert`, `rate_request_create`, `callback_create`, `wheat_offer_create`, `get_customer_by_number`, `get_rates`, `get_stock_summary`, `stock_event`.
+Outcome ठीक एक: `order_placed · rate_enquiry · rate_reduction · callback · not_interested · not_picked · wrong_number · do_not_call · order_update`.
+
+Tests: `npm test` (अब `call.test.mjs` भी — in-memory Postgres, कोई असली call/WhatsApp नहीं).
