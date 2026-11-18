@@ -878,6 +878,7 @@ th.today-h{background:linear-gradient(135deg,#f39c12,#d35400)!important;}
     <button class="tile tile-6" data-go="call"><span class="t-ico">📞</span><span class="t-name">Call</span></button>
     <button class="tile tile-7" data-go="setrate"><span class="t-ico">💰</span><span class="t-name">Set Rate</span></button>
     <button class="tile tile-9" data-go="tally"><span class="t-ico">📊</span><span class="t-name">Tally View</span></button>
+    <button class="tile tile-em" data-go="emergency"><span class="t-ico">🚨</span><span class="t-name">Emergency</span></button>
   </div>
   <button class="chat-ai-btn" data-go="chatai"><span class="ai-dot"></span>💬 CHAT AI</button>
 </div>
@@ -961,7 +962,8 @@ th.today-h{background:linear-gradient(135deg,#f39c12,#d35400)!important;}
   <div class="att-wrap" id="att-wrap"></div>
   <div class="att-actions" id="att-actions" style="justify-content:center;margin-top:14px;"></div>
 </div>
-<div class="screen sub-screen" id="call-screen"><div class="sub-head"><button class="back-btn" data-go="home">← Back</button><div class="sub-title">📞 Call</div></div><div class="placeholder-card"><span class="big-ico">📞</span><h3>Quick Call</h3><p style="margin-bottom:16px;">ज़रूरी नंबर पर call करें</p><a href="tel:9631816666" style="display:inline-block;padding:14px 34px;background:linear-gradient(135deg,#2ecc71,#1e8449);color:#fff;border-radius:14px;font-weight:700;text-decoration:none;font-size:17px;">📞 Office Call</a></div></div>
+<div class="screen sub-screen" id="call-screen"><div class="sub-head"><button class="back-btn" data-go="home">← Back</button><div class="sub-title">📞 Call</div></div><div id="call-body" style="width:100%;display:flex;justify-content:center;"></div></div>
+<div class="screen sub-screen" id="emergency-screen"><div class="sub-head"><button class="back-btn" data-go="home">← Back</button><div class="sub-title" style="color:#b71c1c">🚨 Emergency / Stock</div></div><div id="em-body" style="width:100%;display:flex;justify-content:center;"></div></div>
 <div class="screen sub-screen" id="setrate-screen"><div class="sub-head"><button class="back-btn" data-go="home">← Back</button><div class="sub-title">💰 Set Rate</div></div><div id="sr-body" style="width:100%;max-width:1100px;"></div></div>
 <!-- PRINT HOME -->
 <div class="screen sub-screen" id="printhome-screen">
@@ -1016,5 +1018,6 @@ th.today-h{background:linear-gradient(135deg,#f39c12,#d35400)!important;}
 <script src="tally.js"></script>
 <script src="setrate.js"></script>
 <script src="wa-admin.js"></script>
+<script src="call-ui.js"></script>
 </body>
 </html>

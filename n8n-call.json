@@ -1,0 +1,715 @@
+{
+  "name": "SATYAM GOLD - Call (Phase A)",
+  "active": false,
+  "nodes": [
+    {
+      "id": "README",
+      "name": "README",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -420
+      ],
+      "parameters": {
+        "content": "## SATYAM GOLD — CALL (Phase A)\n1. n8n Credentials में 2 Header Auth बनाएँ:\n   • **SG Secret (X-SG-Secret)**: Name = `X-SG-Secret`, Value = वही जो Cloudflare में N8N_SECRET है.\n   • **Dograh API key**: Dograh docs के हिसाब से header name/value.\n2. भरें: दोनों `Config` nodes में APP_URL · Dograh trigger URL · Dograh recording URL.\n3. Dograh में end-of-call webhook = `https://n8n.satyamgold.com/webhook/sg-dograh-done` (header X-SG-Secret).\n4. Publish. Dograh के endpoint यहाँ अंदाज़े से नहीं भरे — अपने Dograh docs से भरें.",
+        "width": 560,
+        "height": 230
+      }
+    },
+    {
+      "id": "wh-sg-ping",
+      "name": "sg-ping",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sg-ping",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-ping"
+    },
+    {
+      "id": "wh-sg-call-customer",
+      "name": "sg-call-customer",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sg-call-customer",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-call-customer"
+    },
+    {
+      "id": "wh-sg-custom-dial-call",
+      "name": "sg-custom-dial-call",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sg-custom-dial-call",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-custom-dial-call"
+    },
+    {
+      "id": "Config",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        100
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "APP_URL",
+              "type": "string",
+              "value": "https://REPLACE-WITH-YOUR-APP-DOMAIN"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "notes": "APP_URL = आपकी Cloudflare Pages site (अंत में / नहीं)."
+    },
+    {
+      "id": "build",
+      "name": "Dograh request बनाओ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// App से आया event -> Dograh को जाने वाला payload (कोई secret नहीं).\nconst b = $json.body || {};\nconst c = b.contact || {};\nreturn [{ json: {\n  call_ref: b.call_ref,            // यही call_ref end-of-call webhook में वापस आना चाहिए\n  phone: '+91' + String(c.phone || b.phone || '').replace(/\\D/g, '').slice(-10),\n  variables: {\n    customer_name: c.name || b.name || '',\n    ckey: c.ckey || '',\n    area: c.rate_area || c.area || '',\n    call_ref: b.call_ref,\n    call_reason: b.reason || '',   // Dial Pad का instruction (सिर्फ़ इसी पर बात)\n    language: 'hi',\n    announce_recording: b.announce_recording !== false\n  }\n}}];"
+      }
+    },
+    {
+      "id": "dograh",
+      "name": "Dograh: call trigger (URL भरें)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_DOGRAH_TRIGGER_URL",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Dograh API key"
+        }
+      },
+      "notes": "Dograh docs के हिसाब से URL भरें. Key सिर्फ़ n8n credential में रहे."
+    },
+    {
+      "id": "pong",
+      "name": "pong",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        260,
+        -200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "wh-sg-dograh-done",
+      "name": "sg-dograh-done",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        460
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sg-dograh-done",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-dograh-done"
+    },
+    {
+      "id": "Config (done)",
+      "name": "Config (done)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        460
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "APP_URL",
+              "type": "string",
+              "value": "https://REPLACE-WITH-YOUR-APP-DOMAIN"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "notes": "APP_URL = आपकी Cloudflare Pages site (अंत में / नहीं)."
+    },
+    {
+      "id": "norm",
+      "name": "call_completed बनाओ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        460
+      ],
+      "parameters": {
+        "jsCode": "// Dograh end-of-call payload -> app का call_completed.\n// ⚠️ नीचे के field-नाम अपने Dograh workflow के 'extracted variables' के हिसाब से बदलें.\n// Dograh agent को ये 9 outcomes में से EXACTLY एक देना है:\nconst OUT = ['order_placed','rate_enquiry','rate_reduction','callback','not_interested','not_picked','wrong_number','do_not_call','order_update'];\nconst b = $json.body || {};\nconst v = b.gathered_context || b.extracted_variables || b.variables || {};\nconst dur = Number(b.duration || b.call_duration || 0);\nlet outcome = String(v.outcome || b.outcome || '').trim();\nif (!OUT.includes(outcome)) outcome = dur === 0 ? 'not_picked' : 'callback';\nconst items = (v.order_items || b.order_items || []).map(i => ({ name: String(i.name || ''), qty: Number(i.qty) })); // rate कभी नहीं भेजते\nconst payload = {\n  action: 'call_completed',\n  call_ref: v.call_ref || b.call_ref,\n  direction: (b.direction === 'inbound' || b.direction === 'in') ? 'in' : 'out',\n  contact: { phone: b.phone || b.to || b.from || '', ckey: v.ckey || '', name: v.customer_name || '' },\n  outcome,\n  outcome_note: v.outcome_note || v.reason || '',\n  callback_at: v.callback_at || undefined,\n  duration: dur,\n  cost: Number(b.cost || 0),\n  recording_ref: b.recording_id || b.recording_ref || b.recording_url || undefined, // सिर्फ़ reference; app इसे browser को नहीं देती\n  transcript: b.transcript || '',\n  summary: v.summary || b.summary || ''\n};\nif (['order_placed','order_update'].includes(outcome) && items.length) payload.order = { name: v.customer_name || '', items };\nif (outcome === 'rate_reduction') payload.rate_request = { item: v.rate_item || 'Atta Gold', requested_rate: Number(v.requested_rate) };\nreturn [{ json: { APP_URL: $json.APP_URL, payload } }];"
+      }
+    },
+    {
+      "id": "toapp",
+      "name": "App को call_completed भेजो",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        460
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.APP_URL }}/api/call-hook",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "notes": "वही 'SG Secret' credential — app इसे X-SG-Secret से verify करती है."
+    },
+    {
+      "id": "wh-sg-start-area-campaign",
+      "name": "sg-start-area-campaign",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        700
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sg-start-area-campaign",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-start-area-campaign"
+    },
+    {
+      "id": "todo-start-area-campaign",
+      "name": "TODO Phase B — start-area-campaign",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        300,
+        700
+      ],
+      "parameters": {},
+      "notes": "Webhook तैयार है (app इसे भेजती है). असली काम Phase B में जुड़ेगा."
+    },
+    {
+      "id": "wh-sg-start-wheat-procurement",
+      "name": "sg-start-wheat-procurement",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        840
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sg-start-wheat-procurement",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-start-wheat-procurement"
+    },
+    {
+      "id": "todo-start-wheat-procurement",
+      "name": "TODO Phase D — start-wheat-procurement",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        300,
+        840
+      ],
+      "parameters": {},
+      "notes": "Webhook तैयार है (app इसे भेजती है). असली काम Phase D में जुड़ेगा."
+    },
+    {
+      "id": "wh-sg-stop-all-calls",
+      "name": "sg-stop-all-calls",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        980
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sg-stop-all-calls",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-stop-all-calls"
+    },
+    {
+      "id": "todo-stop-all-calls",
+      "name": "TODO Phase A/B — stop-all-calls",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        300,
+        980
+      ],
+      "parameters": {},
+      "notes": "Webhook तैयार है (app इसे भेजती है). असली काम Phase A/B में जुड़ेगा."
+    },
+    {
+      "id": "wh-sg-stock-check",
+      "name": "sg-stock-check",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1120
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sg-stock-check",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-stock-check"
+    },
+    {
+      "id": "todo-stock-check",
+      "name": "TODO Phase C — stock-check",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        300,
+        1120
+      ],
+      "parameters": {},
+      "notes": "Webhook तैयार है (app इसे भेजती है). असली काम Phase C में जुड़ेगा."
+    },
+    {
+      "id": "wh-sg-test-alert",
+      "name": "sg-test-alert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1260
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sg-test-alert",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-test-alert"
+    },
+    {
+      "id": "todo-test-alert",
+      "name": "TODO Phase C — test-alert",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        300,
+        1260
+      ],
+      "parameters": {},
+      "notes": "Webhook तैयार है (app इसे भेजती है). असली काम Phase C में जुड़ेगा."
+    },
+    {
+      "id": "wh-sg-ack-alert",
+      "name": "sg-ack-alert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1400
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sg-ack-alert",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-ack-alert"
+    },
+    {
+      "id": "todo-ack-alert",
+      "name": "TODO Phase C — ack-alert",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        300,
+        1400
+      ],
+      "parameters": {},
+      "notes": "Webhook तैयार है (app इसे भेजती है). असली काम Phase C में जुड़ेगा."
+    },
+    {
+      "id": "stopnote",
+      "name": "stopnote",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        560,
+        950
+      ],
+      "parameters": {
+        "content": "⚠️ sg-stop-all-calls: इसे Dograh के 'चल रहे campaigns रोको' endpoint से जोड़ें. App नई calls पहले ही रोक देती है, पर Dograh में चल रहा campaign यहीं से रुकेगा.",
+        "width": 420,
+        "height": 120
+      }
+    },
+    {
+      "id": "wh-sg-recording",
+      "name": "sg-recording",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1620
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "sg-recording",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SG Secret (X-SG-Secret)"
+        }
+      },
+      "webhookId": "sg-sg-recording"
+    },
+    {
+      "id": "dograh-rec",
+      "name": "Dograh: recording लाओ (URL भरें)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        1620
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=REPLACE_WITH_DOGRAH_RECORDING_URL/{{ $json.query.ref }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Dograh API key"
+        }
+      },
+      "notes": "Dograh URL/key browser तक कभी नहीं जाते — app audio stream करती है."
+    }
+  ],
+  "connections": {
+    "sg-call-customer": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sg-custom-dial-call": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Dograh request बनाओ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dograh request बनाओ": {
+      "main": [
+        [
+          {
+            "node": "Dograh: call trigger (URL भरें)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sg-ping": {
+      "main": [
+        [
+          {
+            "node": "pong",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sg-dograh-done": {
+      "main": [
+        [
+          {
+            "node": "Config (done)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config (done)": {
+      "main": [
+        [
+          {
+            "node": "call_completed बनाओ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "call_completed बनाओ": {
+      "main": [
+        [
+          {
+            "node": "App को call_completed भेजो",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sg-start-area-campaign": {
+      "main": [
+        [
+          {
+            "node": "TODO Phase B — start-area-campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sg-start-wheat-procurement": {
+      "main": [
+        [
+          {
+            "node": "TODO Phase D — start-wheat-procurement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sg-stop-all-calls": {
+      "main": [
+        [
+          {
+            "node": "TODO Phase A/B — stop-all-calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sg-stock-check": {
+      "main": [
+        [
+          {
+            "node": "TODO Phase C — stock-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sg-test-alert": {
+      "main": [
+        [
+          {
+            "node": "TODO Phase C — test-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sg-ack-alert": {
+      "main": [
+        [
+          {
+            "node": "TODO Phase C — ack-alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sg-recording": {
+      "main": [
+        [
+          {
+            "node": "Dograh: recording लाओ (URL भरें)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}
